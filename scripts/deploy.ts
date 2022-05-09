@@ -1,11 +1,13 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const Greeter = await ethers.getContractFactory("Governance");
-  const greeter = await Greeter.deploy();
-  await greeter.deployed();
+  const tokenFactory = await ethers.getContractFactory("Token");
+  const token = await tokenFactory.deploy();
+  await token.deployed();
 
-  console.log("Governance deployed to:", greeter.address);
+  const governanceFactory = await ethers.getContractFactory("Governance");
+  const governance = await governanceFactory.deploy(token.address);
+  await governance.deployed();
 }
 
 main().catch((error) => {

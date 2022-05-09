@@ -6,7 +6,16 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Governance is Ownable{
     Token private token;
-    enum voteOption {vote_for, vote_against, vote_abstain}
+
+    // Available choices: 1 - for, 2 - abstain, 3 - against
+    struct Vote {
+        address voterAddress;
+        uint8 choice;
+    }
+
+    constructor(Token _token) {
+        token = _token;
+    }
 
     uint8 public upperPercentageRejectedLimit;
     uint8 public lowerPercentageAcceptedLimit;
@@ -14,10 +23,21 @@ contract Governance is Ownable{
     uint256 public votingStartTime;
     uint256 public votingEndTime;
     mapping(address => bool) private whitelist;
+    mapping(uint => Vote) private votes;
 
     modifier isWhitelisted(address _address) {
-        require(whitelist[_address] != true, "This address is blacklisted");
+        require(whitelist[_address] == true, "This address is blacklisted");
         _;
+    }
+
+    function submitVote(uint8 _choice) external isWhitelisted(msg.sender) { 
+        require(token.balanceOf(msg.sender) == 0, "This address has already voted");
+        require(_choice == 1 || _choice == 2 || _choice == 3, "Available choices: 1 - for, 2 - abstain, 3 - against");
+        Vote memory v;
+        v.voterAddress = msg.sender;
+        v.choice = _choice;
+        token.mint(msg.sender, 1);
+        votes[token.totalSupply()] = v;
     }
 
     function modifyWhitelistAccess(address _address, bool _hasAccess) external onlyOwner {

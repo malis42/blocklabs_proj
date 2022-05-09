@@ -7,7 +7,11 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 chai.use(solidity);
 const { expect } = chai;
 
-let TIMESTAMP: number = Math.ceil(Date.now() / 1000) + 60;
+const VOTE_FOR = 1;
+const VOTE_ABSTAIN = 2;
+const VOTE_AGAINST = 3;
+
+const TIMESTAMP: number = Math.ceil(Date.now() / 1000) + 60;
 
 describe("Governance", async () => {
   let token: Contract;
@@ -17,12 +21,12 @@ describe("Governance", async () => {
 
   beforeEach(async () => {
     [admin, user] = await ethers.getSigners();
-    // const tokenFactory = await ethers.getContractFactory("Token");
-    // token = await tokenFactory.deploy();
-    // await token.deployed();
+    const tokenFactory = await ethers.getContractFactory("Token");
+    token = await tokenFactory.deploy();
+    await token.deployed();
 
     const governanceFactory = await ethers.getContractFactory("Governance");
-    governance = await governanceFactory.deploy();
+    governance = await governanceFactory.deploy(token.address);
     await governance.deployed();
   });
 
@@ -98,5 +102,12 @@ describe("Governance", async () => {
       expect(await governance.checkIfAddressIsWhitelisted(user.address)).to.be
         .true;
     });
+
+    it("Should let user vote after being added to whitelist", async () => {
+      await governance.connect(admin).modifyWhitelistAccess(user.address, true);
+      expect(Number(await token.totalSupply())).to.be.eq(0);
+      await governance.connect(user).submitVote(VOTE_FOR);
+      expect(Number(await token.totalSupply())).to.be.eq(1);
+    })
   });
 });
