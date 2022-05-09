@@ -51,10 +51,9 @@ describe("Governance", async () => {
       const minVotes = 100;
       await expect(governance.connect(user).setMinimumVotesRequired(minVotes))
         .to.be.reverted;
-      await expect(governance.connect(admin).setMinimumVotesRequired(-1))
-        .to.be.reverted;
-      await expect(governance.setMinimumVotesRequired(2**32))
-        .to.be.reverted;
+      await expect(governance.connect(admin).setMinimumVotesRequired(-1)).to.be
+        .reverted;
+      await expect(governance.setMinimumVotesRequired(2 ** 32)).to.be.reverted;
       await governance.setMinimumVotesRequired(minVotes);
       expect(Number(await governance.minimumVotesRequired())).to.be.greaterThan(
         0
@@ -70,9 +69,8 @@ describe("Governance", async () => {
       await expect(
         governance.connect(admin).setPercentageLimits(lowerLimit, lowerLimit)
       ).to.be.reverted;
-      await expect(
-        governance.connect(admin).setPercentageLimits(0, upperLimit)
-      ).to.be.reverted;
+      await expect(governance.connect(admin).setPercentageLimits(0, upperLimit))
+        .to.be.reverted;
       await expect(
         governance.connect(admin).setPercentageLimits(lowerLimit, 101)
       ).to.be.reverted;
@@ -83,6 +81,22 @@ describe("Governance", async () => {
       expect(Number(await governance.lowerPercentageAcceptedLimit())).to.be.eq(
         70
       );
+    });
+
+    it("Should let only admin set and get whitelist info", async () => {
+      await expect(
+        governance.connect(user).modifyWhitelistAccess(user.address, true)
+      ).to.be.reverted;
+      await expect(governance.connect(user).checkIfAddressIsWhitelisted(user.address)).to.be
+        .reverted;
+      expect(
+        await governance
+          .connect(admin)
+          .checkIfAddressIsWhitelisted(user.address)
+      ).to.be.false;
+      await governance.modifyWhitelistAccess(user.address, true);
+      expect(await governance.checkIfAddressIsWhitelisted(user.address)).to.be
+        .true;
     });
   });
 });
