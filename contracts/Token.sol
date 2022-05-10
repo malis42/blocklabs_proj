@@ -3,13 +3,39 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract Token is ERC20{
-  address public voter;
-  
-  constructor() payable ERC20("Governance Voting Token", "GVT"){}
+contract Token is ERC20 {
+    address private admin;
+    address private governance;
 
-  function mint(address _account, uint8 _amount) public {
-    require(_amount <= 1, "Cannot mint more than 1 token for specific address");
-    _mint(_account, _amount);
-  }
+    modifier onlyAdmin(address _address) {
+        require(_address == admin, "Only admin can call that method!");
+        _;
+    }
+
+    modifier onlyGovernance(address _address) {
+        require(_address == governance, "Only governance contract can call that method!");
+        _;
+    }
+
+    constructor() payable ERC20("Governance Voting Token", "GVT"){
+        admin = msg.sender;
+    }
+
+    function mint(address _account, uint8 _amount) external onlyGovernance(msg.sender) {
+        require(_amount == 1, "You can mint only 1 token for specific address");
+        _mint(_account, _amount);
+    }
+
+    function burn(address _account, uint8 _amount) external onlyGovernance(msg.sender) {
+        require(_amount == 1, "You can burn only 1 token for specific address");
+        _burn(_account, _amount);
+    }
+
+    function setAdminAddress(address _address) external onlyAdmin(msg.sender){
+        admin = _address;
+    }
+
+    function setGovernanceAddress(address _address) external onlyAdmin(msg.sender) {
+        governance = _address;
+    }
 }
