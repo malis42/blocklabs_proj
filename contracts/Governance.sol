@@ -6,22 +6,17 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Governance is Ownable {
     Token private token;
-
-    // Available choices: 1 - for, 2 - abstain, 3 - against
-    struct Vote {
-        address voterAddress;
-        uint8 choice;
-    }
-
     uint8 public upperPercentageRejectedLimit;
     uint8 public lowerPercentageAcceptedLimit;
+    uint8 public result;
     uint32 public minimumVotesRequired;
     uint256 public votingStartTime;
     uint256 public votingEndTime;
     mapping(address => bool) private whitelist;
-    mapping(uint => Vote) private votes;
+    // Available choices: 1 - for, 2 - abstain, 3 - against
+    mapping(uint => uint8) private votes;
 
-    event VotingResults(uint votesFor, uint votesAbstain, uint votesAgainst);
+    event VotingResults(uint votesFor, uint votesAbstain, uint votesAgainst, uint8 result);
 
     modifier isWhitelisted(address _address) {
         require(whitelist[_address] == true, "This address is blacklisted");
@@ -38,11 +33,8 @@ contract Governance is Ownable {
         require(token.balanceOf(msg.sender) == 0, "This address has already voted");
         require(_choice == 1 || _choice == 2 || _choice == 3, "Available choices: 1 - for, 2 - abstain, 3 - against");
         require(block.timestamp >= votingStartTime && block.timestamp <= votingEndTime, "Voting is not active right now");
-        Vote memory v;
-        v.voterAddress = msg.sender;
-        v.choice = _choice;
         token.mint(msg.sender, 1);
-        votes[token.totalSupply()] = v;
+        votes[token.totalSupply()] = _choice;
     }
 
     function generateVotingResult() external onlyOwner {
@@ -53,21 +45,16 @@ contract Governance is Ownable {
         uint votesAbstain = 0;    
         uint votesAgainst = 0;
         for(uint i = 1; i <= allVotes; i++) {
-            if(votes[i].choice == 1) {
+            if(votes[i] == 1) {
                 votesFor++;
-            } else if (votes[i].choice == 2) {
+            } else if (votes[i] == 2) {
                 votesAbstain++;
-            }  else if (votes[i].choice == 3) {
+            } else if (votes[i] == 3) {
                 votesAgainst++;
             }
-            token.burn(votes[i].voterAddress, 1);
         }
-        calculateSummary(votesFor, votesAgainst, upperPercentageRejectedLimit, lowerPercentageAcceptedLimit);
-        emit VotingResults(votesFor, votesAbstain, votesAgainst);
-    }
-
-    function calculateSummary(uint _votesFor, uint _votesAgainst, uint8 _upperLimit, uint8 _lowerLimit) pure private {
-      
+        result = _calculateSummary(votesFor, votesAgainst, upperPercentageRejectedLimit, lowerPercentageAcceptedLimit);
+        emit VotingResults(votesFor, votesAbstain, votesAgainst, result);
     }
 
     function modifyWhitelistAccess(address _address, bool _hasAccess) external onlyOwner {
@@ -97,8 +84,19 @@ contract Governance is Ownable {
     function setPercentageLimits(uint8 _rejectedLimit, uint8 _acceptedLimit) external onlyOwner {
         require(_rejectedLimit > 0, "Lower rejection percentage limit has to be bigger than 0%");
         require(_acceptedLimit <= 100, "Upper acceptance percentage limit has to be less or equal to 100%");
-        require(_rejectedLimit < _acceptedLimit - 1, "Lower rejection limit has to be smaller than upper acceptance limit");
+        require(_rejectedLimit < _acceptedLimit - 1, "Rejection limit has to be smaller than acceptance limit");
         upperPercentageRejectedLimit = _rejectedLimit;
         lowerPercentageAcceptedLimit = _acceptedLimit;
+    }
+
+    function _calculateSummary(uint _votesFor, uint _votesAgainst, uint8 _upperLimit, uint8 _lowerLimit) pure private returns(uint8){
+    uint percentage = (_votesFor  * 100)/( _votesFor + _votesAgainst);
+        if(percentage <= _upperLimit) { 
+        return 1; //rejected
+        } else if (percentage >= _lowerLimit) {
+        return 2; //accepted
+        } else {
+        return 3; //not resolved
+        }
     }
 }

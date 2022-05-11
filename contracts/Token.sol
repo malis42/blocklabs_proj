@@ -17,18 +17,13 @@ contract Token is ERC20 {
         _;
     }
 
-    constructor() payable ERC20("Governance Voting Token", "GVT"){
+    constructor() ERC20("Governance Voting Token", "GVT"){
         admin = msg.sender;
     }
 
     function mint(address _account, uint8 _amount) external onlyGovernance(msg.sender) {
         require(_amount == 1, "You can mint only 1 token for specific address");
         _mint(_account, _amount);
-    }
-
-    function burn(address _account, uint8 _amount) external onlyGovernance(msg.sender) {
-        require(_amount == 1, "You can burn only 1 token for specific address");
-        _burn(_account, _amount);
     }
 
     function setAdminAddress(address _address) external onlyAdmin(msg.sender){

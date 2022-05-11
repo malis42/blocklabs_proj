@@ -10,6 +10,7 @@ const { expect } = chai;
 const VOTE_FOR = 1;
 const VOTE_ABSTAIN = 2;
 const VOTE_AGAINST = 3;
+const VOTE_INCORRECT = 4;
 
 const TIMESTAMP: number = Math.ceil(Date.now() / 1000) + 60;
 
@@ -140,6 +141,7 @@ describe("Governance", async () => {
         await governance.modifyWhitelistAccess(user1.address, true);
         expect(Number(await token.totalSupply())).to.be.eq(0);
         await governance.connect(user1).submitVote(VOTE_FOR);
+        await expect(governance.submitVote(VOTE_INCORRECT)).to.be.reverted;
         expect(Number(await token.totalSupply())).to.be.eq(1);
       });
 
@@ -155,21 +157,52 @@ describe("Governance", async () => {
         await governance.modifyWhitelistAccess(user5.address, true);
         await governance.modifyWhitelistAccess(user6.address, true);
 
+        // Set min number of votes required
+        const minVotes = 5;
+        await governance.connect(admin).setMinimumVotesRequired(minVotes);
+
         await governance.connect(user1).submitVote(VOTE_FOR);
         await governance.connect(user2).submitVote(VOTE_FOR);
         await governance.connect(user3).submitVote(VOTE_FOR);
         await governance.connect(user4).submitVote(VOTE_ABSTAIN);
+
+        // Do not let admin end vote when minimum number of votes is not met
+        await expect(governance.connect(admin).generateVotingResult()).to.be
+          .reverted;
+
         await governance.connect(user5).submitVote(VOTE_AGAINST);
         await governance.connect(user6).submitVote(VOTE_AGAINST);
         expect(Number(await token.totalSupply())).to.be.eq(6);
 
         await ethers.provider.send("evm_mine", [TIMESTAMP + 90000]);
-        const tx = await governance.connect(admin).generateVotingResult();
-        expect(tx).to.emit(governance, "VotingResults").withArgs(3, 1, 2, 6);
-
-        const receipt = await tx.wait();
-        console.log(receipt.events);
+        // Expect to get: 3 votes for, 1 votes abstain, 2 votes against, result = 3 - not resolved
+        expect(await governance.connect(admin).generateVotingResult())
+          .to.emit(governance, "VotingResults")
+          .withArgs(3, 1, 2, 3);
       });
+    });
+  });
+
+  describe("Successfuly deployed token contract", () => {
+    it("Should let only admin change admin address", async () => {
+      await expect(token.connect(user1).setAdminAddress(user1.address)).to.be
+        .reverted;
+      await expect(token.connect(admin).setAdminAddress(user1.address)).not.to.be
+        .reverted;
+    });
+
+    it("Should let only admin change governance contract address", async () => {
+      await expect(token.connect(user1).setGovernanceAddress(user1.address)).to.be
+        .reverted;
+      await expect(token.connect(admin).setGovernanceAddress(user1.address)).not.to.be
+        .reverted;
+    });
+
+    it("Should let only governance contract mint tokens", async () => {
+      await expect(token.connect(user1).mint(user1.address, 1)).to.be
+        .reverted;
+      await expect(token.connect(governance.signer).mint(user1.address, 1)).not.to.be
+        .reverted;
     });
   });
 });
