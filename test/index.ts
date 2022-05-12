@@ -7,11 +7,6 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 chai.use(solidity);
 const { expect } = chai;
 
-const VOTE_FOR = 1;
-const VOTE_ABSTAIN = 2;
-const VOTE_AGAINST = 3;
-const VOTE_INCORRECT = 4;
-
 const TIMESTAMP: number = Math.ceil(Date.now() / 1000) + 60;
 
 describe("Governance", async () => {
@@ -64,11 +59,11 @@ describe("Governance", async () => {
 
     describe("Setting minimum votes required", () => {
       it("Should let only admin change minimum votes required", async () => {
-        const minVotes = 100;
+        const MIN_VOTES = 100;
         await expect(
-          governance.connect(user1).setMinimumVotesRequired(minVotes)
+          governance.connect(user1).setMinimumVotesRequired(MIN_VOTES)
         ).to.be.reverted;
-        await governance.connect(admin).setMinimumVotesRequired(minVotes);
+        await governance.connect(admin).setMinimumVotesRequired(MIN_VOTES);
         expect(
           Number(await governance.minimumVotesRequired())
         ).to.be.greaterThan(0);
@@ -83,30 +78,33 @@ describe("Governance", async () => {
     });
 
     describe("Setting settlement percentage values", () => {
-      const lowerLimit: number = 30;
-      const upperLimit: number = 70;
+      const REJECTED_LIMIT = 30;
+      const REJECTED_LIMIT_INVALID = 0;
+      const ACCEPTED_LIMIT = 70;
+      const ACCEPTED_LIMIT_INVALID = 101;
+      
       it("Should let only admin change settlement percentage values", async () => {
         await expect(
-          governance.connect(user1).setPercentageLimits(lowerLimit, upperLimit)
+          governance.connect(user1).setPercentageLimits(REJECTED_LIMIT, ACCEPTED_LIMIT)
         ).to.be.reverted;
         await governance
           .connect(admin)
-          .setPercentageLimits(lowerLimit, upperLimit);
+          .setPercentageLimits(REJECTED_LIMIT, ACCEPTED_LIMIT);
         expect(
           Number(await governance.upperPercentageRejectedLimit())
-        ).to.be.eq(30);
+        ).to.be.eq(REJECTED_LIMIT);
         expect(
           Number(await governance.lowerPercentageAcceptedLimit())
-        ).to.be.eq(70);
+        ).to.be.eq(ACCEPTED_LIMIT);
       });
 
       it("Should let admin set only proper values", async () => {
         await expect(
-          governance.connect(admin).setPercentageLimits(lowerLimit, lowerLimit)
+          governance.connect(admin).setPercentageLimits(REJECTED_LIMIT, REJECTED_LIMIT)
         ).to.be.reverted;
-        await expect(governance.setPercentageLimits(0, upperLimit)).to.be
+        await expect(governance.setPercentageLimits(REJECTED_LIMIT_INVALID, ACCEPTED_LIMIT)).to.be
           .reverted;
-        await expect(governance.setPercentageLimits(lowerLimit, 101)).to.be
+        await expect(governance.setPercentageLimits(REJECTED_LIMIT, ACCEPTED_LIMIT_INVALID)).to.be
           .reverted;
       });
     });
@@ -134,6 +132,12 @@ describe("Governance", async () => {
     });
 
     describe("Submitting a vote and generating results", () => {
+      const VOTE_FOR = 1;
+      const VOTE_ABSTAIN = 2;
+      const VOTE_AGAINST = 3;
+      const VOTE_INCORRECT = 4;
+      const MIN_VOTES = 5;
+      
       it("Should let user1 vote after being added to whitelist", async () => {
         await governance.connect(admin).setVotingStartTime(TIMESTAMP);
         await governance.setVotingEndTime(TIMESTAMP + 86400);
@@ -158,8 +162,7 @@ describe("Governance", async () => {
         await governance.modifyWhitelistAccess(user6.address, true);
 
         // Set min number of votes required
-        const minVotes = 5;
-        await governance.connect(admin).setMinimumVotesRequired(minVotes);
+        await governance.connect(admin).setMinimumVotesRequired(MIN_VOTES);
 
         await governance.connect(user1).submitVote(VOTE_FOR);
         await governance.connect(user2).submitVote(VOTE_FOR);
@@ -187,22 +190,15 @@ describe("Governance", async () => {
     it("Should let only admin change admin address", async () => {
       await expect(token.connect(user1).setAdminAddress(user1.address)).to.be
         .reverted;
-      await expect(token.connect(admin).setAdminAddress(user1.address)).not.to.be
-        .reverted;
+      await expect(token.connect(admin).setAdminAddress(user1.address)).not.to
+        .be.reverted;
     });
 
     it("Should let only admin change governance contract address", async () => {
-      await expect(token.connect(user1).setGovernanceAddress(user1.address)).to.be
-        .reverted;
-      await expect(token.connect(admin).setGovernanceAddress(user1.address)).not.to.be
-        .reverted;
-    });
-
-    it("Should let only governance contract mint tokens", async () => {
-      await expect(token.connect(user1).mint(user1.address, 1)).to.be
-        .reverted;
-      await expect(token.connect(governance.signer).mint(user1.address, 1)).not.to.be
-        .reverted;
+      await expect(token.connect(user1).setGovernanceAddress(user1.address)).to
+        .be.reverted;
+      await expect(token.connect(admin).setGovernanceAddress(user1.address)).not
+        .to.be.reverted;
     });
   });
 });

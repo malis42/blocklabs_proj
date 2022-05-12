@@ -8,6 +8,7 @@ contract Governance is Ownable {
     Token private token;
     uint8 public upperPercentageRejectedLimit;
     uint8 public lowerPercentageAcceptedLimit;
+    // 1 - rejected, 2 - accepted, 3 - not resolved
     uint8 public result;
     uint32 public minimumVotesRequired;
     uint256 public votingStartTime;
@@ -16,7 +17,7 @@ contract Governance is Ownable {
     // Available choices: 1 - for, 2 - abstain, 3 - against
     mapping(uint => uint8) private votes;
 
-    event VotingResults(uint votesFor, uint votesAbstain, uint votesAgainst, uint8 result);
+    event VotingResults(uint votesFor, uint votesAbstain, uint votesAgainst, uint8 indexed result);
 
     modifier isWhitelisted(address _address) {
         require(whitelist[_address] == true, "This address is blacklisted");
@@ -40,11 +41,10 @@ contract Governance is Ownable {
     function generateVotingResult() external onlyOwner {
         require(block.timestamp > votingEndTime, "Voting is still active");
         require(token.totalSupply() >= minimumVotesRequired, "Not enough votes for voting to be valid");
-        uint allVotes = token.totalSupply();
         uint votesFor = 0;    
         uint votesAbstain = 0;    
         uint votesAgainst = 0;
-        for(uint i = 1; i <= allVotes; i++) {
+        for(uint i = 1; i <= token.totalSupply(); i++) {
             if(votes[i] == 1) {
                 votesFor++;
             } else if (votes[i] == 2) {
@@ -90,13 +90,13 @@ contract Governance is Ownable {
     }
 
     function _calculateSummary(uint _votesFor, uint _votesAgainst, uint8 _upperLimit, uint8 _lowerLimit) pure private returns(uint8){
-    uint percentage = (_votesFor  * 100)/( _votesFor + _votesAgainst);
+        uint percentage = (_votesFor  * 100)/( _votesFor + _votesAgainst);
         if(percentage <= _upperLimit) { 
-        return 1; //rejected
+            return 1; //rejected
         } else if (percentage >= _lowerLimit) {
-        return 2; //accepted
+            return 2; //accepted
         } else {
-        return 3; //not resolved
+            return 3; //not resolved
         }
     }
 }
